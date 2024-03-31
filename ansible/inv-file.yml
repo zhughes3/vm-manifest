@@ -1,0 +1,5 @@
+all:
+  hosts:
+   159.203.104.231:
+      ansible_user: root
+      ansible_host: digital-ocean  # This should match a Host entry in your SSH config

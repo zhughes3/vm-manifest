@@ -1,0 +1,71 @@
+- hosts: 159.203.104.231
+  become: true
+  vars:
+    docker_compose_version: "v2.26.0"
+    docker_compose_url: "https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-linux-x86_64"
+  tasks:
+    - name: Update package list
+      apt:
+        update_cache: yes
+
+    - name: Install prerequisites
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+        - make
+
+    - name: Add Docker repository key
+      shell: |
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+      args:
+        executable: /bin/bash
+      async: 15 # timeout in seconds
+      poll: 0    # check every second
+
+    - name: Update package list (again)
+      apt:
+        update_cache: yes
+
+    - name: Install Docker CE
+      apt:
+        name: docker-ce
+        state: present
+
+    - name: Add daemon.json file to get Docker metrics
+      ansible.builtin.copy:
+        src: "./daemon.json"
+        dest: "/etc/docker"
+      
+
+    - name: Create directory for Docker Compose plugin
+      file:
+        path: "~/.docker/cli-plugins/"
+        state: directory
+        mode: '0755'
+
+    - name: Download Docker Compose binary
+      shell: |
+        curl -SL {{ docker_compose_url }} -o /usr/local/bin/docker-compose
+      args:
+        executable: /bin/bash
+
+    - name: Make Docker Compose binary executable
+      file:
+        path: "/usr/local/bin/docker-compose"
+        mode: '0755'
+
+    - name: Copy docker compose script
+      ansible.builtin.copy:
+        src: ../cluster
+        dest: "/tmp"
+
+    - name: Run docker compose up
+      shell: |
+        cd /tmp/cluster && make up
+      args:
+        executable: /bin/bash
